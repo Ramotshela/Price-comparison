@@ -2,9 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import pandas as pd
-
-# Define the base URL for resolving relative URLs
-base_url = "https://www.shoprite.co.za"
+import re
 
 # Define headers to mimic a real browser request
 headers = {
@@ -12,6 +10,9 @@ headers = {
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br'
 }
+
+# Define the base URL for resolving relative URLs
+base_url = "https://www.shoprite.co.za/c-2256/All-Departments?q=%3Arelevance%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff%3AallCategories%3Afood#"
 
 # Function to extract product data from HTML content
 def extract_product_data(html):
@@ -40,19 +41,20 @@ def extract_product_data(html):
                 "Product Name": product_name,
                 "Price": product_price,
                 "Category": product_category,
-                "Image URL": product_image_url
+                "Image URL": product_image_url,
+                "shop name": "Shoprite"
             })
         except AttributeError:
             continue
 
     return products
 
-# Function to scrape all pages
+# Function to scrape all pages for a given start URL
 def scrape_all_pages(start_url, max_pages=5):
     all_products = []
     current_page = 1
     while current_page <= max_pages:
-        print(f"Scraping page {current_page}...")
+        print(f"Scraping page {current_page} from {start_url}...")
         # Fetch the HTML content from the page
         response = requests.get(start_url, headers=headers)
         if response.status_code == 403:
@@ -78,16 +80,28 @@ def scrape_all_pages(start_url, max_pages=5):
 
     return all_products
 
-# URL of the first page to scrape
-start_url = 'https://www.shoprite.co.za/c-2256/All-Departments?q=%3Arelevance%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&page=1'
+# List of start URLs and corresponding category names
+start_urls = [
+    {'url': 'https://www.shoprite.co.za/c-2423/All-Departments/Food/Fresh-Food/Fresh-Vagetables?q=%3Arelevance%3AallCategories%3Afood%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&amp;page=1', 'category': 'Vagetables'},
+    {'url': 'https://www.shoprite.co.za/c-66/All-Departments/Food/Fresh-Food/Fresh-Fruit?q=%3Arelevance%3AbrowseAllStoresFacet%3AbrowseAllStoresFacet%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&amp;page=1', 'category': 'fresh fruits'},
+    # Add more category URLs and names here
+]
 
-# Scrape data from all pages
-all_product_data = scrape_all_pages(start_url, max_pages=10)  # Adjust max_pages as needed
-
-# Create a DataFrame to store the scraped data
-df = pd.DataFrame(all_product_data)
-
-# Save the DataFrame to a CSV file
-df.to_csv("shoprite_products.csv", index=False)
-
-print("Data extraction completed. Data saved to shoprite_products.csv")
+# Scrape data from all categories and save to CSV files
+for entry in start_urls:
+    category_url = entry['url']
+    category_name = entry['category']
+    
+    # Scrape data for this category
+    all_product_data = scrape_all_pages(category_url, max_pages=1) 
+    
+    # Create a DataFrame to store the scraped data
+    df = pd.DataFrame(all_product_data)
+    
+    # Define the filename based on the category name
+    filename = f"shoprite_products_{re.sub(r'[^a-zA-Z0-9]', '_', category_name)}.csv"
+    
+    # Save the DataFrame to a CSV file
+    df.to_csv(filename, index=False)
+    
+    print(f"Data for category '{category_name}' saved to {filename}")
