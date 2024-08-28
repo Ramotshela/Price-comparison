@@ -1,8 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-import pymongo
-import re
+import pandas as pd
+
+# Define the base URL for resolving relative URLs
+base_url = "https://www.shoprite.co.za"
 
 # Define headers to mimic a real browser request
 headers = {
@@ -41,8 +43,7 @@ def extract_product_data(html):
                 "Product Name": product_name,
                 "Price": product_price,
                 "Category": product_category,
-                "Image URL": product_image_url,
-                "Shop Name": "Shoprite"
+                "Image URL": product_image_url
             })
         except AttributeError:
             continue
@@ -80,35 +81,16 @@ def scrape_all_pages(start_url, max_pages=5):
 
     return all_products
 
-# MongoDB connection setup
-client = pymongo.MongoClient('mongodb+srv://rammakwaramotshela1:EkAldI6A2A974Igo@cluster0.dsmuw.mongodb.net/')
-db = client['shopriteDB']  # Replace with your database name
-collection = db['products']  # Replace with your collection name
+# URL of the first page to scrape
+start_url = 'https://www.shoprite.co.za/c-2256/All-Departments?q=%3Arelevance%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&page=1'
 
-# List of start URLs and corresponding category names
-start_urls = [
-    {'url': 'https://www.shoprite.co.za/c-2423/All-Departments/Food/Fresh-Food/Fresh-Vagetables?q=%3Arelevance%3AallCategories%3Afood%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&amp;page=1', 'category': 'Vegetables'},
-    {'url': 'https://www.shoprite.co.za/c-66/All-Departments/Food/Fresh-Food/Fresh-Fruit?q=%3Arelevance%3AbrowseAllStoresFacet%3AbrowseAllStoresFacet%3AbrowseAllStoresFacetOff%3AbrowseAllStoresFacetOff&amp;page=1', 'category': 'Fresh Fruits'},
-    # Add more category URLs and names here
-]
+# Scrape data from all pages
+all_product_data = scrape_all_pages(start_url, max_pages=10)  # Adjust max_pages as needed
 
-# Scrape data from all categories and insert into MongoDB
-for entry in start_urls:
-    category_url = entry['url']
-    category_name = entry['category']
-    
-    # Scrape data for this category
-    all_product_data = scrape_all_pages(category_url, max_pages=1) 
-    
-    # Add category name to each product and insert into MongoDB
-    for product in all_product_data:
-        product['Category'] = category_name
-    
-    if all_product_data:
-        collection.insert_many(all_product_data)
-        print(f"Data for category '{category_name}' successfully inserted into MongoDB")
-    else:
-        print(f"No data to insert for category '{category_name}'")
+# Create a DataFrame to store the scraped data
+df = pd.DataFrame(all_product_data)
 
-# Close MongoDB connection
-client.close()
+# Save the DataFrame to a CSV file
+df.to_csv("shoprite_products.csv", index=False)
+
+print("Data extraction completed. Data saved to shoprite_products.csv")
