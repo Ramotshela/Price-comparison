@@ -16,6 +16,7 @@ base_url = "https://www.shoprite.co.za/c-2256/All-Departments?q=%3Arelevance%3Ab
 
 # Function to extract product data from HTML content
 def extract_product_data(html):
+    
     soup = BeautifulSoup(html, 'html.parser')
     products = []
 
@@ -81,7 +82,7 @@ def scrape_all_pages(start_url, max_pages=5):
     return all_products
 
 # MongoDB connection setup
-client = pymongo.MongoClient('mongodb+srv://rammakwaramotshela1:EkAldI6A2A974Igo@cluster0.dsmuw.mongodb.net/')
+client = pymongo.MongoClient('mongodb+srv://rammakwaramotshela1:EkAldI6A2A974Igo@cluster0.am5pu.mongodb.net/')
 db = client['shopriteDB']  # Replace with your database name
 collection = db['products']  # Replace with your collection name
 
@@ -98,7 +99,7 @@ for entry in start_urls:
     category_name = entry['category']
     
     # Scrape data for this category
-    all_product_data = scrape_all_pages(category_url, max_pages=1) 
+    all_product_data = scrape_all_pages(category_url, max_pages=100) 
     
     # Add category name to each product and insert into MongoDB
     for product in all_product_data:
