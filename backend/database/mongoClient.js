@@ -10,7 +10,7 @@ async function connectToDatabase() {
     try {
         await client.connect();
         console.log("Connected successfully to MongoDB");
-        const database = client.db('myDatabase'); // Database name
+        const database = client.db('shopriteDB'); // Database name
         return database;
     } catch (err) {
         console.error("Error connecting to MongoDB:", err);

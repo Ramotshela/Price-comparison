@@ -4,7 +4,7 @@ const { ObjectId } = require("mongodb"); // Import ObjectId for MongoDB queries
 const router = express.Router();
 
 module.exports = (database) => {
-  const collection = database.collection("myCollection"); // Collection name
+  const collection = database.collection("products"); // Collection name
 
   // POST route to insert products
   router.post("/insert-products", async (req, res) => {
@@ -21,13 +21,13 @@ module.exports = (database) => {
   });
 
   // GET route to fetch vegetables
-  router.get("/fruits&veg", async (req, res) => {
+  router.get("/products/vegetables", async (req, res) => {
     try {
-      const vegetables = await collection.find({ category: "vegetables" }).toArray();
-      res.json(vegetables);
-    } catch (error) {
-      console.error("Error fetching vegetables:", error);
-      res.status(500).json({ error: "Error fetching vegetables" });
+      const vegetables = await collection.find({ Category: "Vegetables" }).toArray();
+      res.status(200).json(vegetables);
+    } catch (err) {
+      console.error("Error fetching vegetables:", err);
+      res.status(500).send("Error fetching vegetables");
     }
   });
 
