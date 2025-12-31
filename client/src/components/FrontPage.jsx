@@ -1,7 +1,8 @@
 // FrontPage.js
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "../components/frontpage.css";
+import "./frontpage.css";
+import UserList from "./UserList";
 
 function FrontPage({ searchTerm }) {
   const [getVeg, setGetVeg] = useState([]);
@@ -29,24 +30,26 @@ function FrontPage({ searchTerm }) {
     }
   }
 
-  function addToUserList(product) {
-    const savedList = JSON.parse(localStorage.getItem("userList")) || [];
-    const existingProductIndex = savedList.findIndex(
-      (item) => item._id.$oid === product._id.$oid
-    );
-
-    if (existingProductIndex > -1) {
-      // If product exists, update its quantity
-      savedList[existingProductIndex].quantity += 1;
-    } else {
-      // If product does not exist, add it with an initial quantity of 1
-      const updatedProduct = { ...product, quantity: 1 };
-      savedList.push(updatedProduct);
-    }
-
-    setUserList(savedList);
-    localStorage.setItem("userList", JSON.stringify(savedList));
-  }
+ function addToUserList(product) {
+  setUserList((prevList) => {
+    const checkProductId=prevList.includes(product._id)
+           
+        if (checkProductId) {
+          return prevList.map((item)=>
+[
+ 
+//0+  l...item, quantity: item.quantity + 1 ]
+          )
+        }else{
+            [...prevList, { ...product, quantity: 1 }];
+        }
+            
+   
+})
+ }
+useEffect(() => {
+  console.log(userList);
+}, [userList]);
 
   return (
     <div className="horizontal-scroll-container">
@@ -74,4 +77,3 @@ function FrontPage({ searchTerm }) {
 }
 
 export default FrontPage;
-
