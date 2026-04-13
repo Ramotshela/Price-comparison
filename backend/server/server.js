@@ -1,25 +1,50 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const connectToDatabase = require('../database/mongoClient');
-const productRoutes = require('../routes/product');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const config = require('../config');
+const swaggerSpec = require('../config/swagger');
+const { connectToDatabase, closeConnection } = require('../database/mongoClient');
+const productRoutes = require('../routes/product');
+const errorHandler = require('../middleware/errorHandler');
 
 const app = express();
-app.use(bodyParser.json());
-app.use(cors()); // Fixed: Call the cors middleware function
+
+// Security
+app.use(helmet());
+app.use(cors({ origin: config.corsOrigin }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+
+// Parsing & logging
+app.use(express.json({ limit: '1mb' }));
+app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'));
+
+// Docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 async function startServer() {
-    try {
-        const database = await connectToDatabase();
-        app.use('/', productRoutes(database));
+  const database = await connectToDatabase();
+  app.use('/', productRoutes(database));
+  app.use(errorHandler);
 
-        const PORT = 3000;
-        app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-        });
-    } catch (err) {
-        console.error("Error starting the server:", err);
-    }
+  const server = app.listen(config.port, () => {
+    console.log(`Server running on http://localhost:${config.port}`);
+    console.log(`Swagger docs at http://localhost:${config.port}/api-docs`);
+  });
+
+  const shutdown = async () => {
+    console.log('Shutting down gracefully...');
+    await closeConnection();
+    server.close(() => process.exit(0));
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Fatal: failed to start server', err);
+  process.exit(1);
+});

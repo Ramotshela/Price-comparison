@@ -1,92 +1,159 @@
-const express = require("express");
-const nodemailer = require("nodemailer");
-const { ObjectId } = require("mongodb"); // Import ObjectId for MongoDB queries
+const express = require('express');
 const router = express.Router();
+const productService = require('../services/productService');
+const { sendPriceMatchEmail } = require('../services/emailService');
+const { validate, insertProductsSchema, verifyTotalSchema } = require('../middleware/validate');
+const ApiResponse = require('../utils/ApiResponse');
+
+function asyncHandler(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next);
+}
 
 module.exports = (database) => {
-  const collection = database.collection("products"); // Collection name
+  const products = productService(database);
 
-  // POST route to insert products
-  router.post("/insert-products", async (req, res) => {
-    try {
-      const products = req.body;
-      const result = await collection.insertMany(products);
-      res
-        .status(200)
-        .send(`Inserted ${result.insertedCount} documents into MongoDB`);
-    } catch (err) {
-      console.error("Error inserting documents:", err);
-      res.status(500).send("Error inserting documents into MongoDB");
-    }
+  /**
+   * @swagger
+   * /health:
+   *   get:
+   *     summary: Health check
+   *     responses:
+   *       200:
+   *         description: Service is healthy
+   */
+  router.get('/health', (_req, res) => {
+    ApiResponse.success(res, { message: 'Service is healthy' });
   });
 
-  // GET route to fetch vegetables
-  router.get("/products/vegetables", async (req, res) => {
-    try {
-      const vegetables = await collection.find({ Category: "Vegetables" }).toArray();
-      res.status(200).json(vegetables);
-    } catch (err) {
-      console.error("Error fetching vegetables:", err);
-      res.status(500).send("Error fetching vegetables");
+  /**
+   * @swagger
+   * /insert-products:
+   *   post:
+   *     summary: Insert products into the database
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: array
+   *             items:
+   *               type: object
+   *               properties:
+   *                 Product Name:
+   *                   type: string
+   *                 Price:
+   *                   type: string
+   *                 Category:
+   *                   type: string
+   *                 Image URL:
+   *                   type: string
+   *                 Shop Name:
+   *                   type: string
+   *     responses:
+   *       201:
+   *         description: Products inserted successfully
+   *       400:
+   *         description: Validation error
+   *       500:
+   *         description: Server error
+   */
+  router.post('/insert-products', validate(insertProductsSchema), asyncHandler(async (req, res) => {
+    const result = await products.insertMany(req.body);
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message: `Inserted ${result.insertedCount} products`,
+      data: { insertedCount: result.insertedCount },
+    });
+  }));
+
+  /**
+   * @swagger
+   * /products/vegetables:
+   *   get:
+   *     summary: Fetch all vegetable products
+   *     responses:
+   *       200:
+   *         description: List of vegetables
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   _id:
+   *                     type: string
+   *                   Product Name:
+   *                     type: string
+   *                   Price:
+   *                     type: string
+   *                   Category:
+   *                     type: string
+   *       500:
+   *         description: Server error
+   */
+  router.get('/products/vegetables', asyncHandler(async (_req, res) => {
+    const vegetables = await products.getVegetables();
+    ApiResponse.success(res, { data: vegetables });
+  }));
+
+  /**
+   * @swagger
+   * /verify-total:
+   *   post:
+   *     summary: Verify total price and notify user via email if matched
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - productIds
+   *               - userTotalPrice
+   *               - userEmail
+   *             properties:
+   *               productIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               userTotalPrice:
+   *                 type: number
+   *               userEmail:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Verification result
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: No products found
+   *       500:
+   *         description: Server error
+   */
+  router.post('/verify-total', validate(verifyTotalSchema), asyncHandler(async (req, res) => {
+    const { productIds, userTotalPrice, userEmail } = req.body;
+    const matched = await products.getByIds(productIds);
+
+    if (matched.length === 0) {
+      return ApiResponse.error(res, { message: 'No products found for the given IDs', statusCode: 404 });
     }
-  });
 
-  // POST route to calculate total price and notify user
-  router.post("/verify-total", async (req, res) => {
-    try {
-      const { productIds, userTotalPrice, userEmail } = req.body;
+    const totalPrice = matched.reduce((sum, p) => sum + (p.price || 0), 0);
 
-      // Fetch matching products from the database
-      const products = await collection
-        .find({ _id: { $in: productIds.map((id) => new ObjectId(id)) } })
-        .toArray();
-
-      if (products.length === 0) {
-        return res.status(404).send("No products found for the given IDs");
-      }
-
-      // Calculate total price
-      const totalPrice = products.reduce(
-        (sum, product) => sum + (product.price || 0),
-        0
-      );
-
-      if (totalPrice === userTotalPrice) {
-        // Send email notification
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: process.env.EMAIL_USER, // Use environment variable
-            pass: process.env.EMAIL_PASS, // Use environment variable
-          },
-        });
-
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: userEmail,
-          subject: "Price Match Notification",
-          text: `The total price of the products matches your entered total of $${userTotalPrice}.`,
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        return res.status(200).json({
-          message: "Total price matches and email sent",
-          products,
-          totalPrice,
-        });
-      }
-
-      res.status(200).json({
-        message: "Total price does not match",
-        products,
-        totalPrice,
+    if (totalPrice === userTotalPrice) {
+      await sendPriceMatchEmail(userEmail, userTotalPrice);
+      return ApiResponse.success(res, {
+        message: 'Total price matches and email sent',
+        data: { products: matched, totalPrice },
       });
-    } catch (err) {
-      console.error("Error verifying total price:", err);
-      res.status(500).send("Error verifying total price");
     }
-  });
+
+    ApiResponse.success(res, {
+      message: 'Total price does not match',
+      data: { products: matched, totalPrice },
+    });
+  }));
 
   return router;
 };
