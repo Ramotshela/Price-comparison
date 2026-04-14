@@ -17,6 +17,38 @@ const verifyTotalSchema = Joi.object({
   userEmail: Joi.string().email().required(),
 });
 
+const registerSchema = Joi.object({
+  name: Joi.string().min(2).max(255).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).max(128).required(),
+});
+
+const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().required(),
+});
+
+const createListSchema = Joi.object({
+  name: Joi.string().max(255).optional(),
+  budget: Joi.number().positive().allow(null).optional(),
+});
+
+const updateBudgetSchema = Joi.object({
+  budget: Joi.number().positive().allow(null).required(),
+});
+
+const addItemSchema = Joi.object({
+  product_id: Joi.string().required(),
+  product_name: Joi.string().required(),
+  price: Joi.string().required(),
+  image_url: Joi.string().uri().allow('', null).optional(),
+  quantity: Joi.number().integer().min(1).optional(),
+});
+
+const updateQuantitySchema = Joi.object({
+  quantity: Joi.number().integer().min(1).required(),
+});
+
 function validate(schema) {
   return (req, res, next) => {
     const { error } = schema.validate(req.body, { abortEarly: false });
@@ -28,4 +60,14 @@ function validate(schema) {
   };
 }
 
-module.exports = { validate, insertProductsSchema, verifyTotalSchema };
+module.exports = {
+  validate,
+  insertProductsSchema,
+  verifyTotalSchema,
+  registerSchema,
+  loginSchema,
+  createListSchema,
+  updateBudgetSchema,
+  addItemSchema,
+  updateQuantitySchema,
+};

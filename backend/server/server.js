@@ -7,7 +7,10 @@ const swaggerUi = require('swagger-ui-express');
 const config = require('../config');
 const swaggerSpec = require('../config/swagger');
 const { connectToDatabase, closeConnection } = require('../database/mongoClient');
+const { pool, initSchema, closePgPool } = require('../database/pgClient');
 const productRoutes = require('../routes/product');
+const authRoutes = require('../routes/auth');
+const groceryListRoutes = require('../routes/groceryList');
 const errorHandler = require('../middleware/errorHandler');
 
 const app = express();
@@ -25,8 +28,14 @@ app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 async function startServer() {
-  const database = await connectToDatabase();
-  app.use('/', productRoutes(database));
+  // Init databases
+  const mongoDb = await connectToDatabase();
+  await initSchema();
+
+  // Routes
+  app.use('/', productRoutes(mongoDb));
+  app.use('/', authRoutes(pool));
+  app.use('/', groceryListRoutes(pool));
   app.use(errorHandler);
 
   const server = app.listen(config.port, () => {
@@ -37,6 +46,7 @@ async function startServer() {
   const shutdown = async () => {
     console.log('Shutting down gracefully...');
     await closeConnection();
+    await closePgPool();
     server.close(() => process.exit(0));
   };
 

@@ -92,9 +92,11 @@ module.exports = (database) => {
    *       500:
    *         description: Server error
    */
-  router.get('/products/vegetables', asyncHandler(async (_req, res) => {
-    const vegetables = await products.getVegetables();
-    ApiResponse.success(res, { data: vegetables });
+  router.get('/products/vegetables', asyncHandler(async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const result = await products.getVegetables(page, limit);
+    ApiResponse.success(res, { data: result });
   }));
 
   /**
