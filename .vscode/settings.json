@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/scripts/venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/scripts"],
+  "python-envs.defaultEnvManager": "ms-python.python:system"
+}
