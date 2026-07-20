@@ -75,12 +75,21 @@ def main() -> None:
         logger.warning("No products scraped — nothing to export")
         sys.exit(1)
 
-    logger.info("Total: %d products scraped", len(all_products))
+    # Deduplicate by (shop_name, name) — last occurrence wins
+    seen: dict[tuple[str, str], Product] = {}
+    for p in all_products:
+        seen[(p.shop_name, p.name)] = p
+    unique_products = list(seen.values())
+
+    if len(unique_products) < len(all_products):
+        logger.info("Deduplicated %d -> %d products", len(all_products), len(unique_products))
+
+    logger.info("Total: %d products scraped", len(unique_products))
 
     for target in args.export:
         logger.info("Exporting to %s...", target)
         try:
-            EXPORT_MAP[target](all_products)
+            EXPORT_MAP[target](unique_products)
         except Exception:
             logger.exception("Failed to export to %s", target)
 

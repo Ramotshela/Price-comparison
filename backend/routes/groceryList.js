@@ -10,10 +10,7 @@ const {
   updateQuantitySchema,
 } = require('../middleware/validate');
 const ApiResponse = require('../utils/ApiResponse');
-
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
+const asyncHandler = require('../utils/asyncHandler');
 
 module.exports = (pool) => {
   const lists = groceryListServiceFactory(pool);

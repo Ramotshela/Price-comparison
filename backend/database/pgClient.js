@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const config = require('../config');
+const logger = require('../utils/logger');
 
 const pool = new Pool(config.pg);
 
@@ -22,6 +23,17 @@ async function initSchema() {
       updated_at  TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id          SERIAL PRIMARY KEY,
+      user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token       TEXT UNIQUE NOT NULL,
+      expires_at  TIMESTAMPTZ NOT NULL,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token   ON refresh_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
     CREATE TABLE IF NOT EXISTS grocery_list_items (
       id              SERIAL PRIMARY KEY,
       list_id         INT NOT NULL REFERENCES grocery_lists(id) ON DELETE CASCADE,
@@ -33,12 +45,16 @@ async function initSchema() {
       added_at        TIMESTAMPTZ DEFAULT NOW()
     );
   `);
-  console.log('Postgres schema initialized');
+  logger.info('Postgres schema initialized');
+}
+
+async function checkPgHealth() {
+  await pool.query('SELECT 1');
 }
 
 async function closePgPool() {
   await pool.end();
-  console.log('Postgres pool closed');
+  logger.info('Postgres pool closed');
 }
 
-module.exports = { pool, initSchema, closePgPool };
+module.exports = { pool, initSchema, checkPgHealth, closePgPool };

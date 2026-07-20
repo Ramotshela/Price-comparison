@@ -1,79 +1,59 @@
+import asyncio
 import logging
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import (
-    StaleElementReferenceException,
-    TimeoutException,
-    NoSuchElementException,
-)
+from bs4 import BeautifulSoup
 
-from scrapers.config import SELENIUM_TIMEOUT
 from scrapers.core.base_scraper import BaseScraper
-from scrapers.core.browser import get_driver, close_driver
 from scrapers.core.models import Product
 
 logger = logging.getLogger(__name__)
 
 URL = "https://www.pnp.co.za/c/pnpbase"
-MAX_RETRIES = 3
 
 
 class PnPScraper(BaseScraper):
     shop_name = "Pick n Pay"
 
     def scrape(self) -> list[Product]:
+        products = asyncio.run(self._scrape_dynamic())
+        logger.info("PnP: scraped %d items", len(products))
+        return products
+
+    async def _scrape_dynamic(self) -> list[Product]:
         try:
-            products = self._scrape_with_selenium()
-            logger.info("PnP: scraped %d items", len(products))
-            return products
-        finally:
-            close_driver()
+            from playwright.async_api import async_playwright  # pylint: disable=import-outside-toplevel
 
-    def _scrape_with_selenium(self) -> list[Product]:
-        driver = get_driver(headless=True)
-        driver.get(URL)
-        wait = WebDriverWait(driver, SELENIUM_TIMEOUT)
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+                await page.goto(URL, timeout=60000, wait_until="domcontentloaded")
+                await page.wait_for_selector("ui-product-grid-item", timeout=30000)
+                html = await page.content()
+                await browser.close()
+            return self._parse(BeautifulSoup(html, "html.parser"))
+        except Exception as exc:
+            logger.error("PnP scrape failed: %s", exc)
+            return []
 
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                elements = wait.until(
-                    EC.presence_of_all_elements_located(
-                        (By.CSS_SELECTOR, "ui-product-grid-item")
-                    )
-                )
-                return self._parse_elements(elements)
-            except StaleElementReferenceException:
-                logger.warning("Stale element (attempt %d/%d)", attempt, MAX_RETRIES)
-            except TimeoutException:
-                logger.warning("Timeout waiting for products")
-                break
-
-        return []
-
-    def _parse_elements(self, elements) -> list[Product]:
+    def _parse(self, soup: BeautifulSoup) -> list[Product]:
         items: list[Product] = []
-        for el in elements:
-            try:
-                name = el.get_attribute("data-cnstrc-item-name") or ""
-                price = el.get_attribute("data-cnstrc-item-price") or ""
-                try:
-                    img = el.find_element(By.CSS_SELECTOR, "cx-media img")
-                    image_url = img.get_attribute("src") or ""
-                except NoSuchElementException:
-                    image_url = ""
+        for el in soup.find_all("ui-product-grid-item"):
+            name_tag = el.select_one("a.product-grid-item__info-container__name span")
+            price_tag = el.select_one("div.price")
+            img_tag = el.select_one("cx-media img")
 
-                if not name:
-                    continue
+            name = name_tag.get_text(strip=True) if name_tag else ""
+            price = price_tag.get_text(strip=True).replace("R", "").split()[0] if price_tag else ""
+            image_url = img_tag["src"] if img_tag and img_tag.get("src") else ""
 
-                items.append(Product(
-                    name=name,
-                    price=price,
-                    image_url=image_url,
-                    category="Groceries",
-                    shop_name=self.shop_name,
-                ))
-            except NoSuchElementException:
+            if not name:
                 continue
+
+            items.append(Product(
+                name=name,
+                price=price,
+                image_url=image_url,
+                category="Groceries",
+                shop_name=self.shop_name,
+            ))
         return items

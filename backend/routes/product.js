@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const productService = require('../services/productService');
 const { sendPriceMatchEmail } = require('../services/emailService');
-const { validate, insertProductsSchema, verifyTotalSchema } = require('../middleware/validate');
+const { validate, insertProductsSchema, syncProductsSchema, verifyTotalSchema } = require('../middleware/validate');
 const ApiResponse = require('../utils/ApiResponse');
-
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
+const asyncHandler = require('../utils/asyncHandler');
+const requireApiKey = require('../middleware/requireApiKey');
+const { checkMongoHealth } = require('../database/mongoClient');
+const { checkPgHealth } = require('../database/pgClient');
 
 module.exports = (database) => {
   const products = productService(database);
@@ -21,9 +21,22 @@ module.exports = (database) => {
    *       200:
    *         description: Service is healthy
    */
-  router.get('/health', (_req, res) => {
-    ApiResponse.success(res, { message: 'Service is healthy' });
-  });
+  router.get('/health', asyncHandler(async (_req, res) => {
+    const [mongo, pg] = await Promise.allSettled([
+      checkMongoHealth(),
+      checkPgHealth(),
+    ]);
+    const status = {
+      mongo: mongo.status === 'fulfilled' ? 'ok' : 'error',
+      pg: pg.status === 'fulfilled' ? 'ok' : 'error',
+    };
+    const healthy = Object.values(status).every((s) => s === 'ok');
+    ApiResponse.success(res, {
+      statusCode: healthy ? 200 : 503,
+      message: healthy ? 'Service is healthy' : 'Service is degraded',
+      data: status,
+    });
+  }));
 
   /**
    * @swagger
@@ -57,12 +70,22 @@ module.exports = (database) => {
    *       500:
    *         description: Server error
    */
-  router.post('/insert-products', validate(insertProductsSchema), asyncHandler(async (req, res) => {
-    const result = await products.insertMany(req.body);
+  router.post('/sync-products', requireApiKey, validate(syncProductsSchema), asyncHandler(async (req, res) => {
+    const { shopName, products: productList } = req.body;
+    const result = await products.syncProducts(shopName, productList);
+    ApiResponse.success(res, {
+      statusCode: 200,
+      message: `Synced ${shopName}: ${result.upsertedCount} new, ${result.modifiedCount} updated, ${result.deletedCount} removed`,
+      data: result,
+    });
+  }));
+
+  router.post('/insert-products', requireApiKey, validate(insertProductsSchema), asyncHandler(async (req, res) => {
+    const { upsertedCount, modifiedCount } = await products.upsertMany(req.body);
     ApiResponse.success(res, {
       statusCode: 201,
-      message: `Inserted ${result.insertedCount} products`,
-      data: { insertedCount: result.insertedCount },
+      message: `Upserted ${upsertedCount} new, updated ${modifiedCount} existing products`,
+      data: { upsertedCount, modifiedCount },
     });
   }));
 
@@ -92,11 +115,20 @@ module.exports = (database) => {
    *       500:
    *         description: Server error
    */
-  router.get('/products/vegetables', asyncHandler(async (req, res) => {
+  router.get('/products', asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-    const result = await products.getVegetables(page, limit);
+    const { category, shop, search } = req.query;
+    const result = await products.getProducts({ page, limit, category, shop, search });
     ApiResponse.success(res, { data: result });
+  }));
+
+  router.get('/products/filters', asyncHandler(async (_req, res) => {
+    const [categories, shops] = await Promise.all([
+      products.getCategories(),
+      products.getShops(),
+    ]);
+    ApiResponse.success(res, { data: { categories, shops } });
   }));
 
   /**

@@ -19,7 +19,10 @@ function Navbar({ searchTerm, onSearchChange }: NavbarProps) {
 
   return (
     <nav className="navbar">
-      <div className="navbar__brand">🛒 PriceCompare</div>
+      <div className="navbar__brand">
+        <span className="navbar__brand-icon">🛒</span>
+        Price<span>Compare</span>
+      </div>
       <div className="navbar__links">
         <NavLink
           to="/"
@@ -31,15 +34,25 @@ function Navbar({ searchTerm, onSearchChange }: NavbarProps) {
           Home
         </NavLink>
         {user && (
-          <NavLink
-            to="/list"
-            className={({ isActive }) =>
-              `navbar__link ${isActive ? "navbar__link--active" : ""}`
-            }
-          >
-            My List
-            {itemCount > 0 && <span className="navbar__badge">{itemCount}</span>}
-          </NavLink>
+          <>
+            <NavLink
+              to="/list"
+              className={({ isActive }) =>
+                `navbar__link ${isActive ? "navbar__link--active" : ""}`
+              }
+            >
+              My List
+              {itemCount > 0 && <span className="navbar__badge">{itemCount}</span>}
+            </NavLink>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                `navbar__link ${isActive ? "navbar__link--active" : ""}`
+              }
+            >
+              Profile
+            </NavLink>
+          </>
         )}
       </div>
       <div className="navbar__search-wrapper">
@@ -66,8 +79,10 @@ function Navbar({ searchTerm, onSearchChange }: NavbarProps) {
       <div className="navbar__auth">
         {user ? (
           <>
-            <span className="navbar__user">{user.name}</span>
-            <button onClick={handleLogout} className="btn btn--danger-outline btn--sm">
+            <span className="navbar__avatar">
+              {user.name.charAt(0).toUpperCase()}
+            </span>
+            <button onClick={handleLogout} className="btn btn--ghost btn--sm">
               Logout
             </button>
           </>

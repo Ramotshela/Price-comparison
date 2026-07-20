@@ -16,10 +16,17 @@ def export_mongo(products: list[Product]) -> int:
     client = pymongo.MongoClient(MONGO_URI)
     try:
         collection = client[MONGO_DB][MONGO_COLLECTION]
-        docs = [p.to_dict() for p in products]
-        result = collection.insert_many(docs)
-        count = len(result.inserted_ids)
-        logger.info("Inserted %d products into %s.%s", count, MONGO_DB, MONGO_COLLECTION)
+        ops = [
+            pymongo.UpdateOne(
+                {"Shop Name": p.shop_name, "Product Name": p.name},
+                {"$set": p.to_dict()},
+                upsert=True,
+            )
+            for p in products
+        ]
+        result = collection.bulk_write(ops, ordered=False)
+        count = result.upserted_count + result.modified_count
+        logger.info("Upserted %d products into %s.%s", count, MONGO_DB, MONGO_COLLECTION)
         return count
     finally:
         client.close()

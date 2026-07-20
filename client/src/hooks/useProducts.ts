@@ -4,6 +4,12 @@ import type { Product } from "../types/models";
 
 const PAGE_SIZE = 20;
 
+interface Filters {
+  category?: string;
+  shop?: string;
+  search?: string;
+}
+
 interface UseProductsReturn {
   products: Product[];
   loading: boolean;
@@ -13,7 +19,7 @@ interface UseProductsReturn {
   loadMore: () => void;
 }
 
-export function useProducts(): UseProductsReturn {
+export function useProducts(filters: Filters = {}): UseProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -23,29 +29,29 @@ export function useProducts(): UseProductsReturn {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setProducts([]);
+    pageRef.current = 1;
+
     productApi
-      .getVegetables(1, PAGE_SIZE)
+      .getProducts({ page: 1, limit: PAGE_SIZE, ...filters })
       .then((result) => {
         if (cancelled) return;
         setProducts(result.items);
         setHasMore(result.hasMore);
-        pageRef.current = 1;
       })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err: Error) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
     return () => { cancelled = true; };
-  }, []);
+  }, [filters.category, filters.shop, filters.search]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     const nextPage = pageRef.current + 1;
     productApi
-      .getVegetables(nextPage, PAGE_SIZE)
+      .getProducts({ page: nextPage, limit: PAGE_SIZE, ...filters })
       .then((result) => {
         setProducts((prev) => [...prev, ...result.items]);
         setHasMore(result.hasMore);
@@ -53,7 +59,7 @@ export function useProducts(): UseProductsReturn {
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoadingMore(false));
-  }, [loadingMore, hasMore]);
+  }, [loadingMore, hasMore, filters.category, filters.shop, filters.search]);
 
   return { products, loading, loadingMore, error, hasMore, loadMore };
 }

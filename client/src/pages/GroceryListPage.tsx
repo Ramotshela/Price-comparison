@@ -15,29 +15,27 @@ function GroceryListPage() {
     );
   }
 
-  if (list.length === 0) {
-    return (
-      <div className="state-message">
-        <p>Your grocery list is empty.</p>
-        <p className="state-message__detail">
-          Browse products and add items to get started.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <main className="page">
       <div className="page__header">
         <h2 className="page__title">My Grocery List ({itemCount} items)</h2>
-        <button onClick={clearList} className="btn btn--danger-outline btn--sm">
-          Clear All
-        </button>
+        {list.length > 0 && (
+          <button onClick={clearList} className="btn btn--danger-outline btn--sm">
+            Clear All
+          </button>
+        )}
       </div>
 
       <BudgetBar />
 
-      <div className="grocery-grid">
+      {list.length === 0 ? (
+        <div className="state-message">
+          <p>Your grocery list is empty.</p>
+          <p className="state-message__detail">Browse products and add items to get started.</p>
+        </div>
+      ) : (
+        <>
+        <div className="grocery-grid">
         {list.map((item) => {
           const id = getProductId(item)!;
           const lineTotal = (parsePrice(item.Price) * item.quantity).toFixed(2);
@@ -78,10 +76,12 @@ function GroceryListPage() {
         })}
       </div>
 
-      <div className="total-bar">
-        <span>Total</span>
-        <span className="total-bar__price">R{totalPrice}</span>
-      </div>
+        <div className="total-bar">
+          <span>Total</span>
+          <span className="total-bar__price">R{totalPrice}</span>
+        </div>
+        </>
+      )}
     </main>
   );
 }

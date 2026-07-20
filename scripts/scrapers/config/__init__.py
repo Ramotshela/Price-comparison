@@ -25,4 +25,3 @@ REQUEST_HEADERS = {
 
 MAX_PAGES = int(os.getenv("MAX_PAGES", "100"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
-SELENIUM_TIMEOUT = int(os.getenv("SELENIUM_TIMEOUT", "20"))

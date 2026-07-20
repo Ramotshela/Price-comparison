@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import GroceryListPage from "./pages/GroceryListPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ProfilePage from "./pages/ProfilePage";
 import "./styles/app.css";
 
 function App() {
@@ -27,6 +28,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GroceryListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />

@@ -11,6 +11,19 @@ const insertProductsSchema = Joi.array().items(
   })
 ).min(1);
 
+const syncProductsSchema = Joi.object({
+  shopName: Joi.string().required(),
+  products: Joi.array().items(
+    Joi.object({
+      'Product Name': Joi.string().required(),
+      Price: Joi.string().required(),
+      Category: Joi.string().required(),
+      'Image URL': Joi.string().uri().optional(),
+      'Shop Name': Joi.string().optional(),
+    })
+  ).min(1).required(),
+});
+
 const verifyTotalSchema = Joi.object({
   productIds: Joi.array().items(Joi.string().hex().length(24)).min(1).required(),
   userTotalPrice: Joi.number().positive().required(),
@@ -26,6 +39,16 @@ const registerSchema = Joi.object({
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
+});
+
+const updateProfileSchema = Joi.object({
+  name: Joi.string().min(2).max(255).optional(),
+  email: Joi.string().email().optional(),
+}).min(1);
+
+const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string().required(),
+  newPassword: Joi.string().min(6).max(128).required(),
 });
 
 const createListSchema = Joi.object({
@@ -63,9 +86,12 @@ function validate(schema) {
 module.exports = {
   validate,
   insertProductsSchema,
+  syncProductsSchema,
   verifyTotalSchema,
   registerSchema,
   loginSchema,
+  updateProfileSchema,
+  changePasswordSchema,
   createListSchema,
   updateBudgetSchema,
   addItemSchema,

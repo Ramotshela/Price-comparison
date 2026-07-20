@@ -18,9 +18,12 @@ function ProductCard({ product, onAdd }: ProductCardProps) {
       </div>
       <div className="product-card__body">
         <h3 className="product-card__name">{product["Product Name"]}</h3>
+        {product["Shop Name"] && (
+          <span className="product-card__shop">{product["Shop Name"]}</span>
+        )}
         <p className="product-card__price">{product.Price}</p>
-        <button onClick={() => onAdd(product)} className="btn btn--primary">
-          + Add to List
+        <button onClick={() => onAdd(product)} className="btn btn--primary" style={{ borderRadius: '8px' }}>
+          Add to List
         </button>
       </div>
     </div>

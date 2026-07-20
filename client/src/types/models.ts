@@ -45,11 +45,13 @@ export interface User {
 
 export interface AuthContextValue {
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  updateProfile: (fields: { name?: string; email?: string }) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 export interface PaginatedProducts {
@@ -57,6 +59,14 @@ export interface PaginatedProducts {
   total: number;
   page: number;
   hasMore: boolean;
+}
+
+export interface ProductFilters {
+  page?: number;
+  limit?: number;
+  category?: string;
+  shop?: string;
+  search?: string;
 }
 
 export interface BackendListItem {

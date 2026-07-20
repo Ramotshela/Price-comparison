@@ -72,6 +72,11 @@ function BudgetBar() {
               </span>
             )}
           </div>
+          {isOverBudget && (
+            <div className="budget__alert" role="alert">
+              🚨 You're over budget! Consider removing some items before checkout.
+            </div>
+          )}
         </>
       )}
     </div>
